@@ -20,3 +20,12 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
 }
+
+tasks.jar {
+    manifest {
+        attributes["Main-Class"] = "cz.muni.fi.Main"
+    }
+    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) }) {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+}

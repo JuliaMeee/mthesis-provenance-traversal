@@ -23,7 +23,7 @@ import java.util.Map;
 import java.security.Signature;
 
 public class Storage {
-    private static final String STORAGE_IP = "localhost";
+    private static final String STORAGE_IP = "172.17.0.3";
     private static final String STORAGE_PORT = "8000";
     private static final int CLEARANCE_PERIOD = 30;
 
