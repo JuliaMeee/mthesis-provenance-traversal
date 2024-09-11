@@ -2,14 +2,15 @@ package cz.muni.fi;
 
 import cz.muni.fi.storage.FilesLoader;
 import cz.muni.fi.storage.Storage;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
+@SpringBootApplication
 public class Main {
     public static void main(String[] args) throws Exception {
-        // TODO
+        SpringApplication.run(Main.class, args);
 
         // FilesLoader.retrieveFile("train");
-         FilesLoader.retrieveFile("train");
+        // FilesLoader.retrieveFile("train");
     }
 }
