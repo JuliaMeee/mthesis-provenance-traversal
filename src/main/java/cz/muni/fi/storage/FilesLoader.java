@@ -1,26 +1,50 @@
 package cz.muni.fi.storage;
 
+import cz.muni.fi.ServiceRegister;
+
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.KeyFactory;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.Base64;
+import java.util.List;
 
 public class FilesLoader {
     private static final String ORGANISATION = "ORG";
-    private static final Path CERTIFICATES_PATH = Paths.get("src/main/resources/organisation_certificates.json");
+    private static final Path CLIENT_CERTIFICATE_PATH = Paths.get("src/main/resources/certificates/client_certificate.pem");
+    private static final List<Path> INTERMEDIATE_CERTIFICATE_PATHS = List.of(
+            Paths.get("src/main/resources/certificates/intermediate_certificate_1.pem"),
+            Paths.get("src/main/resources/certificates/intermediate_certificate_2.pem")
+    );
     private static final Path PRIVATE_KEY_PATH = Paths.get("src/main/resources/signing_key.pem");
     private static final Path FILES_DIRECTORY = Paths.get("src/main/resources/provenance_data");
-    private static final String[] FILE_NAMES = {
+    private static final List<String> FILE_NAMES = List.of(
             "eval.json",
             "preprocEval.json",
             "preprocTrain.json",
             "train.json"
-    };
-    private static final String TEST_FILE_NAME = "01_sample_acquisition.json";
+    );
+    private static final int CLEARANCE_PERIOD = 30;
 
     public static void registerOrganisation() throws Exception {
-        String certificates = Files.readString(CERTIFICATES_PATH);
-        Storage.registerOrganisation(ORGANISATION, certificates);
+        String clientCertificate = new String(Files.readAllBytes(CLIENT_CERTIFICATE_PATH));
+        List<String> intermediateCertificates = INTERMEDIATE_CERTIFICATE_PATHS.stream()
+                .map(path -> {
+                    try {
+                        return new String(Files.readAllBytes(path));
+                    } catch (IOException e) {
+                        return null;
+                    }
+                })
+                .toList();
+
+        ServiceRegister.storage.registerOrganisation(ORGANISATION, clientCertificate, intermediateCertificates, CLEARANCE_PERIOD);
     }
 
     public static Path getFilePath(String fileName){
@@ -36,19 +60,35 @@ public class FilesLoader {
 
     public static void storeFile(String documentName, Path documentPath) throws Exception {
 
-        Storage.storeDocumentJava(ORGANISATION, PRIVATE_KEY_PATH, documentName, documentPath);
+        String documentJson = Files.readString(documentPath);
+
+        PrivateKey privateKey = loadPrivateKey(PRIVATE_KEY_PATH);
+
+        ServiceRegister.storage.storeDocument(ORGANISATION, privateKey, documentName, documentJson, CLEARANCE_PERIOD);
 
     }
 
-    public static void retrieveFiles() throws IOException, InterruptedException {
+    public static void retrieveFiles() throws Exception{
         for (String fileName : FILE_NAMES) {
             retrieveFile(fileName.replace(".json", ""));
         }
     }
 
-    public static String retrieveFile(String name) throws IOException, InterruptedException {
-        String document = Storage.retrieveDocument(ORGANISATION, name);
-        System.out.println(document);
-        return document;
+    public static String retrieveFile(String name) throws Exception {
+        return ServiceRegister.storage.retrieveDocument(ORGANISATION, name);
+    }
+
+    private static PrivateKey loadPrivateKey(Path keyPath) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
+        String key = Files.readString(keyPath);
+
+        key = key.replace("-----BEGIN PRIVATE KEY-----", "")
+                .replace("-----END PRIVATE KEY-----", "")
+                .replaceAll("\\s", "");
+
+        byte[] keyBytes = Base64.getDecoder().decode(key);
+
+        PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyBytes);
+        KeyFactory kf = KeyFactory.getInstance("RSA");
+        return kf.generatePrivate(spec);
     }
 }
